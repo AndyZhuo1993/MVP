@@ -39,90 +39,20 @@ const RED_FLAGS = [
   { symptom: "自殺意念", action: "立即求助", notes: "撥打 1925/1995 或最近急診" },
 ];
 
-// --- 工具函數 ---
-const fmtDate = (d) => {
-  const y = d.getFullYear();
-  const m = String(d.getMonth()+1).padStart(2,"0");
-  const day = String(d.getDate()).padStart(2,"0");
-  return `${y}-${m}-${day}`;
-};
-const todayStr = () => fmtDate(new Date());
-
-const loadEntries = () => {
-  try { return JSON.parse(localStorage.getItem("hg_entries")||"[]"); } catch { return []; }
-};
-const saveEntries = (arr) => localStorage.setItem("hg_entries", JSON.stringify(arr));
-
-async function compressImageToDataURL(file, maxW=900) {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, maxW / bitmap.width);
-  const w = Math.round(bitmap.width*scale); const h = Math.round(bitmap.height*scale);
-  const canvas = document.createElement('canvas'); canvas.width=w; canvas.height=h;
-  const ctx = canvas.getContext('2d'); ctx.drawImage(bitmap,0,0,w,h);
-  return canvas.toDataURL('image/jpeg', 0.8);
-}
-
-// 計算連續天數（含當日）
-function consecutiveDaysCount(entries, symptom, dateStr){
-  const days = new Set(entries.filter(e=>e.symptoms.includes(symptom)).map(e=>e.date));
-  const d = new Date(dateStr);
-  let count=0; while(true){
-    const s = fmtDate(d);
-    if(days.has(s)){ count++; d.setDate(d.getDate()-1); } else break;
-  }
-  return count;
-}
-
-function genAdvice(entry, allEntries){
-  const adv = [];
-  for(const r of ADVICE_RULES){
-    if(entry.symptoms.includes(r.triggerSymptom)){
-      if(r.triggerDaysGte){
-        const c = consecutiveDaysCount(allEntries, r.triggerSymptom, entry.date);
-        if(c < r.triggerDaysGte) continue;
-      }
-      adv.push({type:r.type, content:r.content, priority:r.priority, key:`${r.type}-${r.triggerSymptom}`});
-    }
-  }
-  adv.sort((a,b)=>b.priority-a.priority);
-  return adv;
-}
-
-function checkRedFlags(entry, allEntries){
-  const hits = [];
-  for(const rf of RED_FLAGS){
-    if(entry.symptoms.includes(rf.symptom)){
-      if(rf.daysGte){
-        const c = consecutiveDaysCount(allEntries, rf.symptom, entry.date);
-        if(c < rf.daysGte) continue;
-      }
-      hits.push(rf);
-    }
-  }
-  return hits;
-}
-
-// --- UI 小元件 ---
-function Chip({label, active, onClick}){
-  return (
-    <button onClick={onClick} className={`px-3 py-1 rounded-full border text-sm mr-2 mb-2 ${active?"bg-black text-white border-black":"bg-white border-gray-300 hover:bg-gray-100"}`}>
-      {label}
-    </button>
-  );
-}
-
-function Section({title, children}){
-  return (
-    <div className="mb-4">
-      <h3 className="text-sm font-semibold text-gray-700 mb-2">{title}</h3>
-      <div>{children}</div>
-    </div>
-  );
-}
-
-function Card({children, tone="default"}){
-  const toneCls = tone==='warn'?"border-amber-400 bg-amber-50":"border-gray-200 bg-white";
-  return <div className={`border ${toneCls} rounded-2xl p-4 shadow-sm mb-3`}>{children}</div>;
+// --- 工具函數 ---$1
+// 產生簡易 sparkline path（0~1 正規化）
+function sparkPath(values, width = 240, height = 60) {
+  const nums = values.filter(v => typeof v === 'number' && !isNaN(v));
+  if (nums.length === 0) return '';
+  const min = Math.min(...nums);
+  const max = Math.max(...nums);
+  const span = max - min || 1;
+  const points = nums.map((v, i) => {
+    const x = (i / (nums.length - 1 || 1)) * width;
+    const y = height - ((v - min) / span) * height;
+    return [x, y];
+  });
+  return points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
 }
 
 // --- 主元件 ---
@@ -130,39 +60,21 @@ export default function App(){
   const [route, setRoute] = useState("home");
   const [entries, setEntries] = useState(()=>loadEntries());
   const [draft, setDraft] = useState({
-    date: todayStr(), symptoms: [], needs: [], mood: 2, note: "", photos: []
+    date: todayStr(),
+    symptoms: [],
+    needs: [],
+    mood: 2,
+    note: "",
+    photos: [],
+    // 生命徵象/數據（選填）
+    bpSys: "",
+    bpDia: "",
+    heartRate: "",
+    weight: "",
+    steps: ""
   });
   const [advice, setAdvice] = useState([]);
   const [redFlags, setRedFlags] = useState([]);
-
-// -------- PWA install prompt（Android/Chrome）--------
-const [installEvt, setInstallEvt] = useState(null);
-const [canInstall, setCanInstall] = useState(false);
-
-useEffect(() => {
-  const handler = (e) => {
-    e.preventDefault();           // 攔下自動提示
-    setInstallEvt(e);
-    setCanInstall(true);          // 顯示安裝按鈕
-  };
-  window.addEventListener('beforeinstallprompt', handler);
-  window.addEventListener('appinstalled', () => setCanInstall(false));
-  return () => window.removeEventListener('beforeinstallprompt', handler);
-}, []);
-
-async function handleInstall() {
-  if (!installEvt) return;
-  installEvt.prompt();
-  await installEvt.userChoice;    // 使用者選擇後就釋放
-  setInstallEvt(null);
-  setCanInstall(false);
-}
-
-const isiOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-const inStandalone =
-  (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
-  (typeof navigator !== 'undefined' && 'standalone' in navigator && navigator.standalone);
-
   
   useEffect(()=>{ saveEntries(entries); },[entries]);
 
@@ -196,17 +108,52 @@ const inStandalone =
   }
 
   function exportCSV(){
-    const headers = ["date","symptoms","needs","mood","note"];
-    const rows = entries.map(e=> [e.date, e.symptoms.join("|"), e.needs.join("|"), e.mood, JSON.stringify(e.note||"")]);
-    const csv = [headers.join(","), ...rows.map(r=>r.join(","))].join("\\n");
-    const blob = new Blob(["\\ufeff"+csv], {type:"text/csv;charset=utf-8;"});
+    const headers = ["date","symptoms","needs","mood","note","bpSys","bpDia","heartRate","weight","steps"];
+    const rows = entries.map(e=> [
+      e.date,
+      (e.symptoms||[]).join("|"),
+      (e.needs||[]).join("|"),
+      e.mood ?? "",
+      JSON.stringify(e.note||""),
+      e.bpSys ?? "",
+      e.bpDia ?? "",
+      e.heartRate ?? "",
+      e.weight ?? "",
+      e.steps ?? ""
+    ]);
+    const csv = [headers.join(","), ...rows.map(r=>r.join(","))].join("\n");
+
+    const blob = new Blob(["\ufeff"+csv], { type: "text/csv;charset=utf-8;" });
+    const file = new File([blob], `health_guide_${Date.now()}.csv`, { type: "text/csv" });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: "健康導覽員匯出", text: "我的健康日記（CSV）" }).catch(()=>{});
+      return;
+    }
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href=url; a.download='health_guide_entries.csv'; a.click(); URL.revokeObjectURL(url);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'health_guide_entries.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+
+    const isIOSStandalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || (typeof navigator!=="undefined" && 'standalone' in navigator && navigator.standalone);
+    if (isIOSStandalone) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const w = window.open('', '_blank');
+        if (w) { w.document.write(`<pre style=\"white-space:pre-wrap;word-wrap:break-word;\">${String(reader.result).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>`); w.document.close(); }
+      };
+      reader.readAsText(blob, 'utf-8');
+    }
   }
 
   function clearAll(){
     if(confirm("確定要刪除所有本機資料？此動作無法復原。")){
-      localStorage.removeItem("hg_entries"); setEntries([]); setDraft({...draft, symptoms:[], needs:[], note:"", photos:[]});
+      localStorage.removeItem("hg_entries"); setEntries([]); setDraft({
+        ...draft,
+        symptoms:[], needs:[], note:"", photos:[],
+        bpSys:"", bpDia:"", heartRate:"", weight:"", steps:""
+      });
     }
   }
 
@@ -240,15 +187,62 @@ const inStandalone =
     );
   }
 
+  // 簡易趨勢頁（最近 30 筆資料）
+  function Trends(){
+    const byDate = [...entries].sort((a,b)=> a.date.localeCompare(b.date));
+    const lastN = (getter, n=30)=> byDate.slice(-n).map(getter).map(v=> (v===''||v==null)? undefined : Number(v));
+    const blocks = [
+      { key:'bpSys', label:'收縮壓', unit:'mmHg', data: lastN(e=>e.bpSys) },
+      { key:'bpDia', label:'舒張壓', unit:'mmHg', data: lastN(e=>e.bpDia) },
+      { key:'heartRate', label:'心率', unit:'bpm', data: lastN(e=>e.heartRate) },
+      { key:'weight', label:'體重', unit:'kg', data: lastN(e=>e.weight) },
+      { key:'steps', label:'步數', unit:'步', data: lastN(e=>e.steps) },
+    ];
+    return (
+      <div>
+        {blocks.map(b=>{
+          const nums = b.data.filter(v=> typeof v==='number' && !isNaN(v));
+          const latest = nums.length? nums[nums.length-1] : '-';
+          const path = sparkPath(nums);
+          return (
+            <Card key={b.key}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="font-semibold">{b.label}</div>
+                <div className="text-sm text-gray-600">{latest}{typeof latest==='number'? ' '+b.unit: ''}</div>
+              </div>
+              <svg viewBox="0 0 240 60" width="100%" height="60">
+                <path d={path} fill="none" stroke="currentColor" strokeWidth="2" />
+              </svg>
+            </Card>
+          );
+        })}
+        {byDate.length===0 && <Card><div className="text-sm text-gray-600">目前沒有資料，請先在「寫日記」新增一則。</div></Card>}
+      </div>
+    );
+  }
+
+  // PWA 安裝提示（Android 會捕捉 beforeinstallprompt）
+  const [installEvt, setInstallEvt] = useState(null);
+  const [canInstall, setCanInstall] = useState(false);
+  useEffect(()=>{
+    const handler = (e)=>{ e.preventDefault(); setInstallEvt(e); setCanInstall(true); };
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', ()=> setCanInstall(false));
+    return ()=> window.removeEventListener('beforeinstallprompt', handler);
+  },[]);
+  const isiOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const inStandalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || (typeof navigator!== 'undefined' && 'standalone' in navigator && navigator.standalone);
+  async function handleInstall(){ if(!installEvt) return; installEvt.prompt(); await installEvt.userChoice; setInstallEvt(null); setCanInstall(false); }
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-white/80 backdrop-blur border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-        <div className="text-lg font-bold">健康導覽員 · 零雲端 MVP v0.2</div>
+        <div className="text-lg font-bold">健康導覽員 · 零雲端 MVP</div>
         <nav className="space-x-1">
-          {['home','write','advice','calendar','settings'].map(r=> (
+          {['home','write','advice','calendar','trends','settings'].map(r=> (
             <button key={r} onClick={()=>setRoute(r)} className={`px-3 py-1 rounded-full text-sm border ${route===r?"bg-black text-white border-black":"bg-white border-gray-300"}`}>{
-              r==='home'? '首頁': r==='write'? '寫日記': r==='advice'? '建議': r==='calendar'? '月曆': '設定'
+              r==='home'? '首頁': r==='write'? '寫日記': r==='advice'? '建議': r==='calendar'? '月曆' : r==='trends'? '趨勢' : '設定'
             }</button>
           ))}
         </nav>
@@ -289,6 +283,25 @@ const inStandalone =
             </Section>
             <Section title="今日需求（可多選）">
               {NEEDS.map(n=> <Chip key={n} label={n} active={draft.needs.includes(n)} onClick={()=>toggleNeed(n)} />)}
+            </Section>
+            <Section title="生命徵象/數據（選填）">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <label className="text-sm">收縮壓(mmHg)
+                  <input type="number" inputMode="numeric" value={draft.bpSys} onChange={e=>setDraft(d=>({...d, bpSys:e.target.value}))} className="mt-1 w-full border rounded-xl px-3 py-2"/>
+                </label>
+                <label className="text-sm">舒張壓(mmHg)
+                  <input type="number" inputMode="numeric" value={draft.bpDia} onChange={e=>setDraft(d=>({...d, bpDia:e.target.value}))} className="mt-1 w-full border rounded-xl px-3 py-2"/>
+                </label>
+                <label className="text-sm">心率(bpm)
+                  <input type="number" inputMode="numeric" value={draft.heartRate} onChange={e=>setDraft(d=>({...d, heartRate:e.target.value}))} className="mt-1 w-full border rounded-xl px-3 py-2"/>
+                </label>
+                <label className="text-sm">體重(kg)
+                  <input type="number" inputMode="numeric" step="0.1" value={draft.weight} onChange={e=>setDraft(d=>({...d, weight:e.target.value}))} className="mt-1 w-full border rounded-xl px-3 py-2"/>
+                </label>
+                <label className="text-sm">步數(步)
+                  <input type="number" inputMode="numeric" value={draft.steps} onChange={e=>setDraft(d=>({...d, steps:e.target.value}))} className="mt-1 w-full border rounded-xl px-3 py-2"/>
+                </label>
+              </div>
             </Section>
             <Section title="備註">
               <textarea value={draft.note} onChange={(e)=>setDraft(d=>({...d, note:e.target.value}))} rows={4} className="w-full border rounded-2xl p-3" placeholder="可描述不適、誘因、用藥…（不建議輸入可識別個資）"/>
@@ -338,12 +351,30 @@ const inStandalone =
           </div>
         )}
 
+        {route==='trends' && (
+          <div>
+            <Trends/>
+          </div>
+        )}
+
         {route==='settings' && (
           <div>
             <Card>
+              <div className="font-semibold mb-2">安裝到主畫面</div>
+              {canInstall && (
+                <button onClick={handleInstall} className="px-4 py-2 rounded-xl bg-black text-white text-sm w-full md:w-auto">安裝 App（Android/Chrome）</button>
+              )}
+              {!canInstall && isiOS && !inStandalone && (
+                <div className="text-sm text-gray-600">iPhone：請用 Safari → 分享 → 加到主畫面。</div>
+              )}
+              {!canInstall && !isiOS && (
+                <div className="text-sm text-gray-600">若看不到按鈕，請在瀏覽器選單找到「安裝 App / 加到主畫面」。</div>
+              )}
+            </Card>
+            <Card>
               <div className="font-semibold mb-2">資料工具</div>
               <div className="flex flex-col gap-2">
-                <button onClick={exportCSV} className="px-4 py-2 rounded-xl border bg-white hover:bg-gray-50 text-sm w-full md:w-auto">匯出 CSV</button>
+                <button onClick={exportCSV} className="px-4 py-2 rounded-xl border bg-white hover:bg-gray-50 text-sm w-full md:w-auto">分享/下載 CSV</button>
                 <button onClick={clearAll} className="px-4 py-2 rounded-xl border border-red-300 text-red-700 bg-red-50 hover:bg-red-100 text-sm w-full md:w-auto">刪除所有本機資料</button>
               </div>
               <div className="text-xs text-gray-500 mt-2">* 本機儲存僅限此裝置與瀏覽器；更換裝置將看不到舊資料（除非匯出備份）。</div>
@@ -351,29 +382,6 @@ const inStandalone =
             <Card>
               <div className="font-semibold mb-2">提醒（本機）</div>
               <div className="text-sm text-gray-600">目前版本不含推播伺服器；可改用手機鬧鐘或行事曆提醒。日後上雲後將提供推播。</div>
-<Card>
-  <div className="font-semibold mb-2">安裝到主畫面</div>
-
-  {canInstall && (
-    <button onClick={handleInstall}
-      className="px-4 py-2 rounded-xl bg-black text-white text-sm w-full md:w-auto">
-      安裝 App（Android/Chrome）
-    </button>
-  )}
-
-  {!canInstall && isiOS && !inStandalone && (
-    <div className="text-sm text-gray-700">
-      iPhone：在 Safari 點「分享 ⬆️」→「加到主畫面」即可安裝。
-    </div>
-  )}
-
-  {!canInstall && !isiOS && (
-    <div className="text-sm text-gray-600">
-      若看不到按鈕：請用 Chrome 開啟，或在瀏覽器選單找「安裝 App / 加到主畫面」。
-    </div>
-  )}
-</Card>
-
             </Card>
           </div>
         )}
