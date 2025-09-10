@@ -28,8 +28,11 @@ function Chip({ label, active, onClick }) {
   return (
     <button
       onClick={onClick}
-      className={`text-sm px-3 py-1.5 rounded-full border mr-2 mb-2 ${active ? "bg-black text-white border-black" : "bg-white border-gray-300"}`}
+      aria-pressed={active}
+      className={`text-sm px-3 py-1.5 rounded-full border mr-2 mb-2 transition
+        ${active ? "bg-black text-white border-black" : "bg-white border-gray-300 hover:bg-gray-100"}`}
     >
+      {active && <span className="mr-1">✔</span>}
       {label}
     </button>
   );
