@@ -24,33 +24,6 @@ export default {
   plugins: []
 }
 
-// =============================
-// src/index.css
-// =============================
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+TC:wght@400;600;700&display=swap');
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-@layer base {
-  html, body { @apply bg-slate-50 text-slate-900 font-sans; }
-  ::selection { @apply bg-brand-200; }
-}
-
-@layer components {
-  .btn { @apply inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold shadow-sm shadow-slate-900/5 transition; }
-  .btn-primary { @apply bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800; }
-  .btn-ghost { @apply bg-white border border-slate-200 hover:bg-slate-50; }
-  .input { @apply w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400; }
-  .card { @apply bg-white rounded-2xl border border-slate-200 p-5 shadow-card; }
-  .chip { @apply inline-flex items-center rounded-full border px-3 py-1.5 text-sm transition; }
-  .chip-on { @apply bg-slate-900 text-white border-slate-900; }
-  .chip-off { @apply bg-white border-slate-300 hover:bg-slate-50; }
-  .tab { @apply px-3 py-1.5 rounded-full border text-sm; }
-  .tab-on { @apply bg-slate-900 text-white border-slate-900; }
-  .tab-off { @apply bg-white border-slate-200 hover:bg-slate-50; }
-}
 
 // =============================
 // index.html
