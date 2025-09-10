@@ -1,6 +1,5 @@
 module.exports = {
   plugins: {
-    tailwindcss: {},
-    autoprefixer: {},
+    '@tailwindcss/postcss': {},  // v4 的 PostCSS 插件
   },
 };
