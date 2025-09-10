@@ -1,6 +1,6 @@
 // ---- Service Worker ----
 // 每次發布請改版本字串，讓舊快取失效
-const CACHE = 'hg-v2';
+const CACHE = 'hg-v10';
 const APP_SHELL = ['/', '/index.html'];
 
 self.addEventListener('install', (e) => {
