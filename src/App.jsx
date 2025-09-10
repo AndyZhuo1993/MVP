@@ -244,7 +244,7 @@ const inStandalone =
     <div className="min-h-screen bg-gray-50 text-gray-900">
       {/* Header */}
       <header className="sticky top-0 z-10 bg-white/80 backdrop-blur border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-        <div className="text-lg font-bold">健康導覽員 · 零雲端 MVP v0.1</div>
+        <div className="text-lg font-bold">健康導覽員 · 零雲端 MVP v0.2</div>
         <nav className="space-x-1">
           {['home','write','advice','calendar','settings'].map(r=> (
             <button key={r} onClick={()=>setRoute(r)} className={`px-3 py-1 rounded-full text-sm border ${route===r?"bg-black text-white border-black":"bg-white border-gray-300"}`}>{
