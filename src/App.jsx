@@ -134,6 +134,35 @@ export default function App(){
   });
   const [advice, setAdvice] = useState([]);
   const [redFlags, setRedFlags] = useState([]);
+
+// -------- PWA install prompt（Android/Chrome）--------
+const [installEvt, setInstallEvt] = useState(null);
+const [canInstall, setCanInstall] = useState(false);
+
+useEffect(() => {
+  const handler = (e) => {
+    e.preventDefault();           // 攔下自動提示
+    setInstallEvt(e);
+    setCanInstall(true);          // 顯示安裝按鈕
+  };
+  window.addEventListener('beforeinstallprompt', handler);
+  window.addEventListener('appinstalled', () => setCanInstall(false));
+  return () => window.removeEventListener('beforeinstallprompt', handler);
+}, []);
+
+async function handleInstall() {
+  if (!installEvt) return;
+  installEvt.prompt();
+  await installEvt.userChoice;    // 使用者選擇後就釋放
+  setInstallEvt(null);
+  setCanInstall(false);
+}
+
+const isiOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const inStandalone =
+  (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+  (typeof navigator !== 'undefined' && 'standalone' in navigator && navigator.standalone);
+
   
   useEffect(()=>{ saveEntries(entries); },[entries]);
 
@@ -322,6 +351,29 @@ export default function App(){
             <Card>
               <div className="font-semibold mb-2">提醒（本機）</div>
               <div className="text-sm text-gray-600">目前版本不含推播伺服器；可改用手機鬧鐘或行事曆提醒。日後上雲後將提供推播。</div>
+<Card>
+  <div className="font-semibold mb-2">安裝到主畫面</div>
+
+  {canInstall && (
+    <button onClick={handleInstall}
+      className="px-4 py-2 rounded-xl bg-black text-white text-sm w-full md:w-auto">
+      安裝 App（Android/Chrome）
+    </button>
+  )}
+
+  {!canInstall && isiOS && !inStandalone && (
+    <div className="text-sm text-gray-700">
+      iPhone：在 Safari 點「分享 ⬆️」→「加到主畫面」即可安裝。
+    </div>
+  )}
+
+  {!canInstall && !isiOS && (
+    <div className="text-sm text-gray-600">
+      若看不到按鈕：請用 Chrome 開啟，或在瀏覽器選單找「安裝 App / 加到主畫面」。
+    </div>
+  )}
+</Card>
+
             </Card>
           </div>
         )}
