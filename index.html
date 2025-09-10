@@ -2,10 +2,29 @@
 <html lang="zh-Hant">
   <head>
     <meta charset="UTF-8" />
+<meta name="robots" content="noindex,nofollow" />
+<meta name="description" content="健康導覽員：記錄每日身體狀況，得到食養/就醫科別/中醫導引建議，資料僅存本機。">
+<meta property="og:title" content="健康導覽員 · 零雲端 MVP">
+<meta property="og:description" content="資料僅存本機，快速得到可行的照護建議。">
+<meta property="og:type" content="website">
+<link rel="icon" href="/favicon.ico">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#111827">
+<link rel="apple-touch-icon" href="/icon-192.png">
+
+
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>健康導覽員 · 零雲端 MVP</title>
     <script src="https://cdn.tailwindcss.com"></script>
   </head>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+  }
+</script>
+
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
